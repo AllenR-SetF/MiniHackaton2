@@ -4,5 +4,5 @@ window.APP_CONFIG = {
   TEAM: 'prjM3',
   API_BASE: ['localhost', '127.0.0.1'].includes(location.hostname)
     ? 'http://localhost:3000/prjM3'
-    : 'https://REPLACE-WITH-YOUR-API-HOST/prjM3',
+    : 'https://prjm3-minihackaton2-production.up.railway.app/prjM3',
 };
