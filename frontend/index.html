@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>prjM3 — Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="login">
+  <main class="card">
+    <h1>Team <span data-team>prjM3</span></h1>
+    <h2>Login</h2>
+    <form id="login-form" autocomplete="off">
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" maxlength="32" required autofocus>
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" maxlength="64" required>
+
+      <button id="login-button" type="submit">Login</button>
+      <p id="error" class="error" role="alert"></p>
+    </form>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
