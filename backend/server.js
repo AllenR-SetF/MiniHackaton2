@@ -435,3 +435,5 @@ server.listen(PORT, () => {
 });
 
 module.exports = { signJwt, verifyJwt, parseCookies };
+
+// Claude AI was used in the development of this code

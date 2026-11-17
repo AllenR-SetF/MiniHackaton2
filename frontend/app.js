@@ -94,3 +94,5 @@ async function initProtected() {
 
 if (document.body.dataset.page === 'login') initLogin();
 else initProtected();
+
+// Claude AI was used in the development of this code
