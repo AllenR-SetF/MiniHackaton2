@@ -184,34 +184,46 @@ let globalFails = { count: 0, resetAt: Date.now() + GLOBAL_WINDOW_MS };
 
 function clientIp(req) {
   if (TRUST_PROXY) {
+    // X-Real-IP is set by the hosting proxy (Railway) and cannot be chosen by
+    // the client. X-Forwarded-For is only a fallback: its first value is
+    // whatever the client sent, so it can be faked.
+    const real = req.headers['x-real-ip'];
+    if (typeof real === 'string' && real.length) return real.trim();
     const xff = req.headers['x-forwarded-for'];
     if (typeof xff === 'string' && xff.length) return xff.split(',')[0].trim();
   }
   return req.socket.remoteAddress || 'unknown';
 }
 
-function isLimited(ip) {
+// A login attempt takes a slot BEFORE the slow password hash runs, and only a
+// successful login gives the slot back. Counting failures afterwards would
+// leave a gap: hundreds of guesses sent at the same instant would all pass the
+// check before the first failure was recorded. It also caps how many hashes
+// can run at once, so a burst cannot queue up CPU work and slow responses.
+// Returns 0 if the attempt may proceed, otherwise seconds until retry.
+function reserveAttempt(ip) {
   const now = Date.now();
   if (globalFails.resetAt <= now) globalFails = { count: 0, resetAt: now + GLOBAL_WINDOW_MS };
-  if (globalFails.count >= GLOBAL_MAX_FAILS) return Math.ceil((globalFails.resetAt - now) / 1000);
 
-  const entry = ipFails.get(ip);
-  if (entry && entry.resetAt > now && entry.count >= PER_IP_MAX_FAILS) {
-    return Math.ceil((entry.resetAt - now) / 1000);
-  }
-  return 0;
-}
-
-function recordFailure(ip) {
-  const now = Date.now();
-  globalFails.count += 1;
   let entry = ipFails.get(ip);
   if (!entry || entry.resetAt <= now) {
     if (!entry && ipFails.size >= MAX_TRACKED_IPS) ipFails.clear(); // bound memory
     entry = { count: 0, resetAt: now + PER_IP_WINDOW_MS };
     ipFails.set(ip, entry);
   }
+
+  if (globalFails.count >= GLOBAL_MAX_FAILS) return Math.ceil((globalFails.resetAt - now) / 1000);
+  if (entry.count >= PER_IP_MAX_FAILS) return Math.ceil((entry.resetAt - now) / 1000);
+
+  globalFails.count += 1;
   entry.count += 1;
+  return 0;
+}
+
+function refundAttempt(ip) {
+  globalFails.count = Math.max(0, globalFails.count - 1);
+  const entry = ipFails.get(ip);
+  if (entry) entry.count = Math.max(0, entry.count - 1);
 }
 
 setInterval(() => {
@@ -293,7 +305,7 @@ async function handleLogin(req, res) {
   if (!originAllowed(req)) return send(res, 403, { error: 'Forbidden origin' });
 
   const ip = clientIp(req);
-  const retryAfter = isLimited(ip);
+  const retryAfter = reserveAttempt(ip); // takes a slot; kept unless login succeeds
   if (retryAfter) {
     return send(res, 429, { error: 'Too many failed attempts. Try again later.' }, {
       'Retry-After': String(retryAfter),
@@ -309,7 +321,6 @@ async function handleLogin(req, res) {
 
   const { username, password } = body || {};
   if (typeof username !== 'string' || typeof password !== 'string' || password.length > 64) {
-    recordFailure(ip);
     return send(res, 401, { error: 'Invalid username or password' });
   }
 
@@ -319,9 +330,9 @@ async function handleLogin(req, res) {
   const passOk = await verifyPassword(password);
 
   if (!userOk || !passOk) {
-    recordFailure(ip);
     return send(res, 401, { error: 'Invalid username or password' });
   }
+  refundAttempt(ip); // successful logins don't count against the limit
 
   const now = Math.floor(Date.now() / 1000);
   const token = signJwt({
@@ -408,6 +419,15 @@ server.headersTimeout = 5000;
 server.requestTimeout = 5000;
 server.keepAliveTimeout = 5000;
 server.maxHeadersCount = 50;
+
+// Crash guards: a malformed request or an unexpected bug must never take the
+// whole process down (an unreachable server counts as a defeat).
+server.on('clientError', (err, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+  else socket.destroy();
+});
+process.on('uncaughtException', (err) => console.error('uncaughtException:', err));
+process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err));
 
 server.listen(PORT, () => {
   console.log(`[${TEAM}] API listening on :${PORT}${BASE_PATH || ''}`);
