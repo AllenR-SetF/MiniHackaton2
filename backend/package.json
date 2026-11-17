@@ -1,0 +1,14 @@
+{
+  "name": "prjm3-password-hackathon-backend",
+  "version": "1.0.0",
+  "description": "prjM3 API server: hand-written JWT auth in HttpOnly cookies using only Node.js built-ins",
+  "main": "server.js",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "gen-jwt-secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\""
+  }
+}
