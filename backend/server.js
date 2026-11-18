@@ -173,9 +173,9 @@ function buildCookie(value, maxAgeSeconds) {
 // Rate limiting for login (brute-force defence). Checked BEFORE any hashing so
 // a flood of guesses can't tie up CPU and slow the server down.
 // ---------------------------------------------------------------------------
-const PER_IP_MAX_FAILS = 5;          // per IP per window
+const PER_IP_MAX_FAILS = 20;         // per IP per window
 const PER_IP_WINDOW_MS = 60 * 1000;
-const GLOBAL_MAX_FAILS = 30;         // across all IPs per window (stops IP rotation)
+const GLOBAL_MAX_FAILS = 45;         // across all IPs per window (stops IP rotation)
 const GLOBAL_WINDOW_MS = 60 * 1000;
 const MAX_TRACKED_IPS = 10000;
 
