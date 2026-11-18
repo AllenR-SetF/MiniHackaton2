@@ -55,7 +55,7 @@ no server-side session or blocklist, so a copied JWT stays valid until `exp` (ru
 
 | Attack | Defence |
 | --- | --- |
-| Brute-forcing the 6-char password | 20 failed logins/min per IP **and** 45/min globally (IP rotation doesn't help) → `429`. An attempt takes a slot *before* the hash runs and only a successful login returns it, so a burst of simultaneous guesses cannot slip past. The IP comes from the proxy's `X-Real-IP`, which the client cannot fake. |
+| Brute-forcing the 6-char password | 20 failed logins/min per IP **and** 100/min globally (IP rotation doesn't help) → `429`. An attempt takes a slot *before* the hash runs and only a successful login returns it, so a burst of simultaneous guesses cannot slip past. The IP comes from the proxy's `X-Real-IP`, which the client cannot fake. |
 | Crashing the server | `clientError`, `uncaughtException` and `unhandledRejection` handlers log the error instead of letting the process exit. |
 | Reusing a Phase 1 JWT to read the new secret | Each JWT carries `cv`, an HMAC fingerprint of the password + secret at issue time. Old JWTs still authenticate and open every page, but `/api/me` returns `secret: null` unless `cv` matches the current credentials. |
 | Forged JWT (`alg: none`, tampered payload, guessed key) | Strict `HS256` check, constant-time HMAC compare, 48-byte random `JWT_SECRET` from env. |
